@@ -83,27 +83,46 @@ def build_tree(node):
         else:
             ranks[rank] = 1
 
-    # for r in sorted(ranks, key=lambda r: ranks[r]):
-    #     print(f'{r}\t{ranks[r]}')
-
-    used = set()
-    print(f'size = {taxidx["1"].size()}')
-
-
     return
+
+
+def tree_to_newick(node):
+    """---------------------------------------------------------------------------------------------
+    stack-based construction of newick string from a root node
+    :param node: Tree       root node of tree
+    :return: string         newick string
+    ---------------------------------------------------------------------------------------------"""
+    stack = []
+    ls = ''
+    rs = ';'
+    stack.append([node, rs])
+    while stack:
+        node, rs = stack.pop()
+        if node.children:
+            ls += '('
+            rs = f'){node.name}{rs}'
+            for n in node.children[::-1]:
+                stack.append([n, rs])
+                rs = ','
+
+        else:
+            ls = f'{ls}{node.name}{rs}'
+
+    return ls
 
 
 # ==================================================================================================
 # Main
 # ==================================================================================================
 if __name__ == '__main__':
+    tree = '((d,e,f)b,c,g)a;'
+    root = Tree(newick=tree)
+    print(tree_to_newick(root))
 
-    sys.setrecursionlimit(5000)
-
-    tax2name = read_names('data/names.dmp.test')
-    for taxid in tax2name:
-        print(f'{taxid}\t{tax2name[taxid]}')
-
-    tree = build_tree('data/nodes.dmp')
+    # tax2name = read_names('data/names.dmp.test')
+    # for taxid in tax2name:
+    #     print(f'{taxid}\t{tax2name[taxid]}')
+    #
+    # tree = build_tree('data/nodes.dmp')
 
     exit(0)
