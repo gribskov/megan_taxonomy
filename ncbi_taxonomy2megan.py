@@ -50,7 +50,7 @@ def read_names(name):
 
 def build_tree(node):
     """---------------------------------------------------------------------------------------------
-    read the NCBI node.dmp and construct a tree using the tree package
+    read the NCBI node.dmp and construct a tree using the Tree class
     :param node:
     :return:
     ---------------------------------------------------------------------------------------------"""
@@ -71,6 +71,9 @@ def build_tree(node):
             childnode = Tree(taxid)
             taxidx[taxid] = childnode
             node_n += 1
+        else:
+            childnode = taxidx[taxid]
+
 
         if parent not in taxidx:
             # parent taxon hasn't been created
@@ -82,6 +85,11 @@ def build_tree(node):
             ranks[rank] += 1
         else:
             ranks[rank] = 1
+
+    nnodes = Tree.nnodes
+    a=taxidx['1232737']
+    print(f'{nnodes} added to tree')
+    n = tree_to_newick(taxidx['1'])
 
     return
 
@@ -96,8 +104,14 @@ def tree_to_newick(node):
     ls = ''
     rs = ';'
     stack.append([node, rs])
+    count = 0
+    stackmax = 0
     while stack:
+        count += 1
+        stackmax = max(len(stack), stackmax)
         node, rs = stack.pop()
+        print(f'{count:8d}     {len(stack)}     {stackmax}     {node.name}')
+
         if node.children:
             ls += '('
             rs = f'){node.name}{rs}'
@@ -111,18 +125,77 @@ def tree_to_newick(node):
     return ls
 
 
+def rank_to_level(rank):
+    """---------------------------------------------------------------------------------------------
+    Return the megan level (lvl) for a string representing a taxonomic rank
+    
+    :param rank: 
+    :return: 
+    ---------------------------------------------------------------------------------------------"""
+    r2l = {
+        'no rank': 0,
+        'superkingdom': 1,
+        'kingdom': 1,
+        'subkingdom': 1,
+        'phylum': 2,
+        'subphylum': 2,
+        'superclass': 3,
+        'class': 3,
+        'subclass': 3,
+        'infraclass': 3,
+        'cohort': 3,
+        'subcohort': 3,
+        'superorder': 4,
+        'order': 4,
+        'suborder': 4,
+        'infraorder': 4,
+        'parvorder': 4,
+        'superfamily': 5,
+        'family': 5,
+        'subfamily': 5,
+        'tribe': 5,
+        'subtribe': 5,
+        'genus': 98,
+        'subgenus': 98,
+        'series': 98,
+        'section': 98,
+        'subsection': 98,
+        'species group': 99,
+        'species': 99,
+        'pecies subgroup': 100,
+        'subspecies': 100,
+        'varietas': 101,
+        'forma': 101,
+        'forma specialis': 101,
+        'pathogroup': 101,
+        'morph': 101,
+        'biotype': 101,
+        'genotype ': 101,
+        'serogroup': 101,
+        'clade': 101,
+        'serotype': 101,
+        'isolate': 101,
+        'strain': 101}
+
+    if rank in r2l:
+        return r2l[rank]
+    else:
+        sys.stderr.write(f'rank_to_level: unknown rank "{rank}". lvl set to 0')
+        return 0
+
+
 # ==================================================================================================
 # Main
 # ==================================================================================================
 if __name__ == '__main__':
-    tree = '((d,e,f)b,c,g)a;'
-    root = Tree(newick=tree)
-    print(tree_to_newick(root))
+    # tree = '((d,e,f)b,c,g)a;'
+    # root = Tree(newick=tree)
+    # print(tree_to_newick(root))
 
-    # tax2name = read_names('data/names.dmp.test')
-    # for taxid in tax2name:
-    #     print(f'{taxid}\t{tax2name[taxid]}')
-    #
-    # tree = build_tree('data/nodes.dmp')
+    tax2name = read_names('data/names.dmp.test')
+    for taxid in tax2name:
+        print(f'{taxid}\t{tax2name[taxid]}')
+
+    tree = build_tree('data/nodes.dmp')
 
     exit(0)
