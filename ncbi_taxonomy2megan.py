@@ -55,6 +55,7 @@ def build_tree(node):
     :return:
     ---------------------------------------------------------------------------------------------"""
     nodes = open_safe(node, 'r')
+    tracelevel = 'order'
 
     ranks = {}
     taxidx = {}
@@ -63,9 +64,16 @@ def build_tree(node):
     nodes.readline()
 
     node_n = 0
+    order_n = 0
     for line in nodes:
         field = line.rstrip().replace('\t', '').split("|")
         taxid, parent, rank = field[:3]
+        if rank == tracelevel:
+            sys.stderr.write('.')
+            order_n += 1
+            if not order_n % 50:
+                sys.stderr.write(f'\t{order_n}\n')
+
         # print(f'taxon:{field[0]}\tparent:{field[1]}\trank:{field[2]}')
         if taxid not in taxidx:
             childnode = Tree(taxid)
@@ -73,7 +81,6 @@ def build_tree(node):
             node_n += 1
         else:
             childnode = taxidx[taxid]
-
 
         if parent not in taxidx:
             # parent taxon hasn't been created
@@ -86,12 +93,8 @@ def build_tree(node):
         else:
             ranks[rank] = 1
 
-    nnodes = Tree.nnodes
-    a=taxidx['1232737']
-    print(f'{nnodes} added to tree')
-    n = tree_to_newick(taxidx['1'])
-
-    return
+    print()
+    return taxidx['1']
 
 
 def tree_to_newick(node):
@@ -108,9 +111,14 @@ def tree_to_newick(node):
     stackmax = 0
     while stack:
         count += 1
+        if not count % 2000:
+            sys.stderr.write(':')
+        if not count % 100000:
+            sys.stderr.write(f'\t{count}\n')
+
         stackmax = max(len(stack), stackmax)
         node, rs = stack.pop()
-        print(f'{count:8d}     {len(stack)}     {stackmax}     {node.name}')
+        # print(f'{count:8d}     {len(stack)}     {stackmax}     {node.name}')
 
         if node.children:
             ls += '('
@@ -193,9 +201,21 @@ if __name__ == '__main__':
     # print(tree_to_newick(root))
 
     tax2name = read_names('data/names.dmp.test')
-    for taxid in tax2name:
-        print(f'{taxid}\t{tax2name[taxid]}')
+    # for taxid in tax2name:
+    #     print(f'{taxid}\t{tax2name[taxid]}')
 
-    tree = build_tree('data/nodes.dmp')
+    root = build_tree('data/nodes.dmp')
+    nnodes = Tree.nnodes
+    sys.stderr.write(f'{nnodes} taxa added to tree\n')
+
+    sys.stderr.write('transforming tree to Newick format\n')
+    newick = tree_to_newick(root)
+    sys.stderr.write(f'{newick[:100]}\n...\n{newick[-100:]}\n')
+    treename = 'new.tre'
+    sys.stderr.write(f'writing tree to {treename} in Newick format\n')
+    trefile = open_safe(treename, 'r')
+    trefile.write(tree)
+    trefile.write('\n')
+    trefile.close()
 
     exit(0)
