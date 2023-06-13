@@ -7,6 +7,52 @@ import sys
 from tree.tree import Tree
 
 
+class Tree_plus(Tree):
+    """=============================================================================================
+    Extended Tree class with additional attributes
+        self.ls, self.rs        used by tree2newick to build the newick string
+        self.depth              depth of a node in the tree (see also add depth
+        self.rank               taxonomic rank, translated to megan level
+    ============================================================================================="""
+
+    def __init__(self, *args, **kwargs):
+        super(Tree_plus, self).__init__(*args, **kwargs)
+
+        # self.ls = ''
+        self.rs = ','
+        self.depth = 0
+        self.rank = ''
+
+    def createNode(self):
+        """-----------------------------------------------------------------------------------------
+        overrides Tree:createNode() so that childAdd() and newickLoad() functions create Tree_plus
+        objects instead of Tree
+
+        :return: Tree_plus
+        -----------------------------------------------------------------------------------------"""
+        return Tree_plus()
+
+    def set_depth(self, depth_init=1):
+        """-----------------------------------------------------------------------------------------
+        traverse the tree and set depth of each node
+
+        :param depth_init:int   depth of the root node
+        :return: int            maximum depth
+        -----------------------------------------------------------------------------------------"""
+        self.depth = depth_init
+        depth_max = depth_init
+        n = 0
+        for node in self:
+            n += 1
+            if node.children:
+                d = node.depth + 1
+                depth_max = max(depth_max, d)
+                for child in node.children:
+                    child.depth = d
+
+        return depth_max
+
+
 def open_safe(filename, mode):
     """---------------------------------------------------------------------------------------------
     open the file and catch exceptions. On failure, if mode is 'r' or 'rb' exit with status = 1,
@@ -48,11 +94,12 @@ def read_names(name):
     return tax2name
 
 
-def build_tree(node, rank2level):
+def build_tree(node):
     """---------------------------------------------------------------------------------------------
     read the NCBI node.dmp and construct a tree using the Tree class
-    :param node:
-    :return:
+
+    :param node: str        name of the file containing the node data (e.g., nodes.dmp)
+    :return: Tree           root node of tree
     ---------------------------------------------------------------------------------------------"""
     nodes = open_safe(node, 'r')
     tracelevel = 'order'
@@ -63,8 +110,8 @@ def build_tree(node, rank2level):
     line = nodes.readline()
     field = line.rstrip().replace('\t', '').split("|")
     taxid, parent, rank = field[:3]
-    root = Tree(taxid, mode='dfs_stack')
-    root.rank = rank2level(rank)
+    root = Tree_plus(taxid, mode='dfs_stack')
+    root.rank = rank_to_level(rank)
     taxidx[taxid] = root
 
     node_n = 0
@@ -80,17 +127,17 @@ def build_tree(node, rank2level):
 
         # print(f'taxon:{field[0]}\tparent:{field[1]}\trank:{field[2]}')
         if taxid not in taxidx:
-            childnode = Tree(taxid)
+            childnode = Tree_plus(taxid)
             taxidx[taxid] = childnode
             node_n += 1
         else:
             childnode = taxidx[taxid]
 
-        childnode.rank = rank2level(rank)
+        childnode.rank = rank_to_level(rank)
 
         if parent not in taxidx:
             # parent taxon hasn't been created
-            taxidx[parent] = Tree(parent)
+            taxidx[parent] = Tree_plus(parent)
             node_n += 1
 
         taxidx[parent].children.append(childnode)
@@ -99,7 +146,7 @@ def build_tree(node, rank2level):
         else:
             ranks[rank] = 1
 
-    # print()
+    sys.stderr.write(f'\n')
     return root
 
 
@@ -139,7 +186,7 @@ def tree_to_newick(node):
     return ls
 
 
-def tree_to_newick2(root):
+def tree_to_newick2(root, depth_max=50):
     """---------------------------------------------------------------------------------------------
     stack-based construction of newick string from a root node
     :param root: Tree       root node of tree
@@ -155,15 +202,19 @@ def tree_to_newick2(root):
         # if not count % 100000:
         #     sys.stderr.write(f'\t{count}\n')
 
-        if node.children:
+        if node.depth > depth_max:
+            continue
+
+        if node.children and node.depth < depth_max:
             ls += '('
-            node.children[0].ls = ''
-            node.children[-1].rs = node.rs + f'){node.name}{node.rs}'
+            # node.children[0].ls = ''
+            node.children[-1].rs = f'){node.name}{node.rs}'
 
         else:
-            ls += f'{node.ls}{node.name}{node.rs}'
+            ls += f'{node.name}{node.rs}'
 
-    ls += ';'
+    # replace final comma with ;
+    ls = f'{ls[:-1]};'
     return ls
 
 
@@ -179,6 +230,7 @@ def rank_to_level(rank):
         'superkingdom': 1,
         'kingdom': 1,
         'subkingdom': 1,
+        'superphylum': 2,
         'phylum': 2,
         'subphylum': 2,
         'superclass': 3,
@@ -204,7 +256,7 @@ def rank_to_level(rank):
         'subsection': 98,
         'species group': 99,
         'species': 99,
-        'pecies subgroup': 100,
+        'species subgroup': 100,
         'subspecies': 100,
         'varietas': 101,
         'forma': 101,
@@ -212,7 +264,7 @@ def rank_to_level(rank):
         'pathogroup': 101,
         'morph': 101,
         'biotype': 101,
-        'genotype ': 101,
+        'genotype': 101,
         'serogroup': 101,
         'clade': 101,
         'serotype': 101,
@@ -222,7 +274,7 @@ def rank_to_level(rank):
     if rank in r2l:
         return r2l[rank]
     else:
-        sys.stderr.write(f'rank_to_level: unknown rank "{rank}". lvl set to 0')
+        sys.stderr.write(f'\nrank_to_level: unknown rank "{rank}". lvl set to 0\n')
         return 0
 
 
@@ -255,34 +307,36 @@ def write_map_file(mapfile, tax2name, root):
 # Main
 # ==================================================================================================
 if __name__ == '__main__':
-    tree = '((d,e,f)b,c,g)a;'
-    root = Tree(newick=tree)
-
-
-    def addlsrs(node):
-        node.ls = ','
-        node.rs = ''
-
-
-    root.do(addlsrs)
-    print(tree_to_newick2(root))
-    exit(100)
+    # # tree = '((((l,m,n)h,i)d,(aa,bb)e,(cc)f)b,(j,k)c,g)a;'
+    # tree = '((6,7,8,9)10239,(2,3,2759)131567,(12908)2787823,(28385)2787854)1;'
+    # root = Tree_plus(newick=tree, mode='dfs_stack')
+    # max1 = root.set_depth(0)
+    # max0 = root.set_depth(1)
+    # newick = tree_to_newick2(root)
+    # print(newick)
+    # newick = tree_to_newick2(root, 2)
+    # print(newick)
+    # max1 = root.set_depth(1)
+    # max0 = root.set_depth(0)
+    # print(f'max depth 0={max0}\t1={max1}')
+    # exit(100)
 
     tax2name = read_names('data/names.dmp.test')
     # for taxid in tax2name:
     #     print(f'{taxid}\t{tax2name[taxid]}')
 
     root = build_tree('data/nodes.dmp')
+    maxtreedepth = root.set_depth(1)
     nnodes = Tree.nnodes
-    sys.stderr.write(f'{nnodes} taxa added to tree\n')
-
+    sys.stderr.write(f'\n{nnodes} taxa added to tree. maximum tree depth={maxtreedepth}\n')
     sys.stderr.write('transforming tree to Newick format\n')
-    newick = tree_to_newick(root)
+    newick = tree_to_newick2(root, 4)
+    sys.stderr.write(f'{newick}\n')
     sys.stderr.write(f'{newick[:100]}\n...\n{newick[-100:]}\n')
     treename = 'new.tre'
     sys.stderr.write(f'writing tree to {treename} in Newick format\n')
-    trefile = open_safe(treename, 'r')
-    trefile.write(tree)
+    trefile = open_safe(treename, 'w')
+    trefile.write(newick)
     trefile.write('\n')
     trefile.close()
 
