@@ -48,7 +48,7 @@ def read_names(name):
     return tax2name
 
 
-def build_tree(node):
+def build_tree(node, rank2level):
     """---------------------------------------------------------------------------------------------
     read the NCBI node.dmp and construct a tree using the Tree class
     :param node:
@@ -60,8 +60,12 @@ def build_tree(node):
     ranks = {}
     taxidx = {}
     # taxid==1 is the root, it has no parent
-    taxidx['1'] = Tree('1')
-    nodes.readline()
+    line = nodes.readline()
+    field = line.rstrip().replace('\t', '').split("|")
+    taxid, parent, rank = field[:3]
+    root = Tree(taxid, mode='dfs_stack')
+    root.rank = rank2level(rank)
+    taxidx[taxid] = root
 
     node_n = 0
     order_n = 0
@@ -82,6 +86,8 @@ def build_tree(node):
         else:
             childnode = taxidx[taxid]
 
+        childnode.rank = rank2level(rank)
+
         if parent not in taxidx:
             # parent taxon hasn't been created
             taxidx[parent] = Tree(parent)
@@ -93,8 +99,8 @@ def build_tree(node):
         else:
             ranks[rank] = 1
 
-    print()
-    return taxidx['1']
+    # print()
+    return root
 
 
 def tree_to_newick(node):
@@ -130,6 +136,34 @@ def tree_to_newick(node):
         else:
             ls = f'{ls}{node.name}{rs}'
 
+    return ls
+
+
+def tree_to_newick2(root):
+    """---------------------------------------------------------------------------------------------
+    stack-based construction of newick string from a root node
+    :param root: Tree       root node of tree
+    :return: string         newick string
+    ---------------------------------------------------------------------------------------------"""
+    ls = ''
+
+    count = 0
+    for node in root:
+        # count += 1
+        # if not count % 2000:
+        #     sys.stderr.write(':')
+        # if not count % 100000:
+        #     sys.stderr.write(f'\t{count}\n')
+
+        if node.children:
+            ls += '('
+            node.children[0].ls = ''
+            node.children[-1].rs = node.rs + f'){node.name}{node.rs}'
+
+        else:
+            ls += f'{node.ls}{node.name}{node.rs}'
+
+    ls += ';'
     return ls
 
 
@@ -192,13 +226,47 @@ def rank_to_level(rank):
         return 0
 
 
+def write_map_file(mapfile, tax2name, root):
+    """---------------------------------------------------------------------------------------------
+    write out the mapping between numeric taxid, scientific name, and taxonomic rank, tab-delimited
+
+    1       NCBI    -1      0
+    2       Bacteria        -1      0
+    6       Azorhizobium    -1      98
+    7       Azorhizobium caulinodans        -1      100
+    9       Buchnera aphidicola     -1      100
+    10      Cellvibrio      -1      98
+    11      Cellulomonas gilvus     -1      100
+
+    :param mapfile: filehandle      open for writing
+    :param tax2name: dict           key=taxid, value =scientific name
+    :param root: Tree object        root of tree
+    :return: int                    number of taxa writen
+    ---------------------------------------------------------------------------------------------"""
+    tax_n = 0
+    for node in root:
+        tax_n += 1
+        mapfile.write(f'{node.name}\t{tax2name[node.name]}\t-1{node.lvl}')
+
+    return tax_n
+
+
 # ==================================================================================================
 # Main
 # ==================================================================================================
 if __name__ == '__main__':
-    # tree = '((d,e,f)b,c,g)a;'
-    # root = Tree(newick=tree)
-    # print(tree_to_newick(root))
+    tree = '((d,e,f)b,c,g)a;'
+    root = Tree(newick=tree)
+
+
+    def addlsrs(node):
+        node.ls = ','
+        node.rs = ''
+
+
+    root.do(addlsrs)
+    print(tree_to_newick2(root))
+    exit(100)
 
     tax2name = read_names('data/names.dmp.test')
     # for taxid in tax2name:
