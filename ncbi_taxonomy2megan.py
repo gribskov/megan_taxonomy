@@ -271,6 +271,10 @@ def rank_to_level(rank):
         'isolate': 101,
         'strain': 101}
 
+    for r in r2l:
+        # make the values strings
+        r2l[r] = f'{r2l[r]}'
+
     if rank in r2l:
         return r2l[rank]
     else:
@@ -278,7 +282,7 @@ def rank_to_level(rank):
         return 0
 
 
-def write_map_file(mapfile, tax2name, root):
+def write_map_file(mapfile, tax2name, root, depth_max=50):
     """---------------------------------------------------------------------------------------------
     write out the mapping between numeric taxid, scientific name, and taxonomic rank, tab-delimited
 
@@ -297,8 +301,18 @@ def write_map_file(mapfile, tax2name, root):
     ---------------------------------------------------------------------------------------------"""
     tax_n = 0
     for node in root:
+        if node.depth > depth_max:
+            continue
+
         tax_n += 1
-        mapfile.write(f'{node.name}\t{tax2name[node.name]}\t-1{node.lvl}')
+        try:
+            taxon = tax2name[node.name]
+        except:
+            sys.stderr.write(f'write_map_file - '
+                             f'unknown taxon "{node.name}" assigned as "unknown""')
+            taxon = 'unknown'
+
+        mapfile.write(f'{node.name}\t{taxon}\t-1\t{node.rank}\n')
 
     return tax_n
 
@@ -321,23 +335,34 @@ if __name__ == '__main__':
     # print(f'max depth 0={max0}\t1={max1}')
     # exit(100)
 
-    tax2name = read_names('data/names.dmp.test')
+    nodefilename = 'data/nodes.dmp'
+    namefilename = 'data/names.dmp'
+    newickfilename = 'new.tre'
+    mapfilename = 'new.map'
+    depth = 4
+
+    tax2name = read_names(namefilename)
     # for taxid in tax2name:
     #     print(f'{taxid}\t{tax2name[taxid]}')
 
-    root = build_tree('data/nodes.dmp')
+    root = build_tree(nodefilename)
     maxtreedepth = root.set_depth(1)
     nnodes = Tree.nnodes
     sys.stderr.write(f'\n{nnodes} taxa added to tree. maximum tree depth={maxtreedepth}\n')
     sys.stderr.write('transforming tree to Newick format\n')
-    newick = tree_to_newick2(root, 4)
+    newick = tree_to_newick2(root, depth)
     sys.stderr.write(f'{newick}\n')
     sys.stderr.write(f'{newick[:100]}\n...\n{newick[-100:]}\n')
-    treename = 'new.tre'
-    sys.stderr.write(f'writing tree to {treename} in Newick format\n')
-    trefile = open_safe(treename, 'w')
+    newickfilename = 'new.tre'
+    sys.stderr.write(f'writing tree to {newickfilename} in Newick format\n')
+    trefile = open_safe(newickfilename, 'w')
     trefile.write(newick)
     trefile.write('\n')
     trefile.close()
+
+    mapfile = open_safe(mapfilename, 'w')
+    map_n = write_map_file(mapfile, tax2name, root, depth)
+    sys.stderr.write(f'{map_n} mappings written to {mapfilename}')
+    mapfile.close()
 
     exit(0)
