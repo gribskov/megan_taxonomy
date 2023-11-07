@@ -44,6 +44,6 @@ taxonomic ranks, their counts (June 2023), and their assignment to megan lvl.
 ### To Do
 - [x] read in nodes.dmp and see what ranks are actually present so that they can be mapped on the 
   megan lvl
-- [ ] write function to convert text rank to numerical rank
-- [ ] implement non-recursive newick function, recursive function from Tree class hits recursion 
+- [x] write function to convert text rank to numerical rank
+- [x] implement non-recursive newick function, recursive function from Tree class hits recursion 
   limit. Seems like it shouldn't, but the tree is 2.5 M taxa.
