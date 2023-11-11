@@ -339,7 +339,7 @@ if __name__ == '__main__':
     namefilename = 'data/names.dmp'
     newickfilename = 'new.tre'
     mapfilename = 'new.map'
-    depth = 4
+    depth = 100
 
     tax2name = read_names(namefilename)
     # for taxid in tax2name:
