@@ -3,7 +3,7 @@ create megan .tre, .map, and map.db files from NCBI taxonomy dump files, should
 correspond to current nr files
 
 The .tre file is a newick formatted tree with the taxa represented by the taxid from the NCBI 
-taxonomy database. The .map file lists the numeric taxid, scientific name, a -1, and the 
+tasonomy database. The .map file lists the numeric taxid, scientific name, a -1, and the 
 taxonomic level: 0-5 and 98-101 corresponding to Root (and unassigned), Kingdom, Phylum, Class, 
 Order, Family, Genus (98), group, genus+species, and subspecies, respectively. This translation 
 is determined by inspection, so it may not be completely reliable. Here are the observed 
