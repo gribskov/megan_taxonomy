@@ -34,46 +34,45 @@ import polars as pl
 # Main
 # ==================================================================================================
 if __name__ == '__main__':
+    datadir = '/scratch/negishi/mgribsko/megan/data/'
     megan = 'megan-map-Feb2022.db'
-    cstr = f'sqlite:{megan}'
-    megan_new = 'megan_new.db'
-    prot2acc = 'prot.accession2taxid.FULL'
+    prot2acc = datadir + 'prot.accession2taxid.FULL'
 
-    mdb_connection = sq.connect(megan)
-    # df =pl.read_sql(f'SELECT Accesion, Taxonomy From mappings, cstr')
-    # mdbold_connection = sq.connect(megan)
-    df = pl.read_database(
-        query=f'SELECT Accession, Taxonomy From mappings',
-        connection = mdb_connection
+    # read nr data into dataframe df_nr
+    nrid_file = datadir + 'nr.id.txt'
+    df_nr = pl.read_csv(
+        source=nrid_file,
+        has_header=False,
+        n_rows=10,
+        truncate_ragged_lines=True
         )
-    # mdb_connection = sq.connect(megan_new)
-    # with mdb_connection:
-    #     mdbold_connection.backup(mdb_connection)
-    # mdbold_connection.close()
+    df_nr = df_nr.with_columns(pl.col("column_1").str.strip_chars_start('>').str.extract(r"(\S+) ",1))
+    df_nr = df_nr.rename({"column_1": "accession"})
+    print(df_nr)
+
+    # connect to megan-map.db using sqlite3, and read taxonomy ids into dataframe df_mdb
+    mdbfile = datadir + megan
+    mdb_connection = sq.connect(mdbfile)
+
+    df_mdb = pl.read_database(
+        query=f'SELECT Accession, Taxonomy From mappings LIMIT 100',
+        connection=mdb_connection
+        )
+    print( df_mdb)
 
     mdb = mdb_connection.cursor()
-    sql = 'SELECT Accession FROM mappings LIMIT 1000'
-    result = mdb.execute(sql)
-    accession_current = result.fetchall()
+    # sql = 'SELECT Accession FROM mappings LIMIT 1000'
+    # result = mdb.execute(sql)
+    # accession_current = result.fetchall()
 
-    p2a = open(prot2acc, 'r')
-    p2a.readline() # strip header
-    accession_new = {}
-    n_new = 0
-    n = 0
-    t = 0
-    for line in p2a:
-        t += 1
-        acc, tax = line.rstrip().split()
-        if tax == '0':
-            continue
-        if not n%1000000:
-            print(f'{n:12d}\t{t:12d}\t{acc}\t{tax}')
-        n += 1
-
-        if acc in accession_current:
-            n_new += 1
-            accession_new[acc] = tax
+    # Read protein.accession to taxonomy data into dataframe df_pt
+    df_pt = pl.read_csv(
+        source=prot2acc,
+        has_header=True,
+        separator='\t',
+        n_rows=100
+        )
+    print(df_pt)
 
     # user1 = {"id": 100, "name": "Rumpelstiltskin", "dob": "12/12/12"}
     # c.execute("INSERT INTO users VALUES (:id, :name, :dob)", user1)
