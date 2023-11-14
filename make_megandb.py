@@ -28,17 +28,24 @@ add new accessions and taxid to mapping table
 13 November 2023     gribskov
 ================================================================================================="""
 import sqlite3 as sq
+import polars as pl
 
 # ==================================================================================================
 # Main
 # ==================================================================================================
 if __name__ == '__main__':
     megan = 'megan-map-Feb2022.db'
+    cstr = f'sqlite:{megan}'
     megan_new = 'megan_new.db'
     prot2acc = 'prot.accession2taxid.FULL'
 
     mdb_connection = sq.connect(megan)
+    # df =pl.read_sql(f'SELECT Accesion, Taxonomy From mappings, cstr')
     # mdbold_connection = sq.connect(megan)
+    df = pl.read_database(
+        query=f'SELECT Accession, Taxonomy From mappings',
+        connection = mdb_connection
+        )
     # mdb_connection = sq.connect(megan_new)
     # with mdb_connection:
     #     mdbold_connection.backup(mdb_connection)
